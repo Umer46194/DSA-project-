@@ -1,0 +1,244 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+struct Room {
+    int roomNumber;
+    int roomType; // 1 for single, 2 for double, 3 for suite
+    bool isOccupied;
+    string guestName;
+};
+
+struct Node {
+    Room room;
+    Node* next;
+};
+
+struct Queue {
+    Node* front;
+    Node* rear;
+};
+
+struct Stack {
+    Node* top;
+};
+
+void initializeQueue(Queue& q) {
+    q.front = q.rear = nullptr;
+}
+
+bool isQueueEmpty(Queue& q) {
+    return (q.front == nullptr);
+}
+
+void enqueue(Queue& q, Room room) {
+    Node* newNode = new Node;
+    newNode->room = room;
+    newNode->next = nullptr;
+    if (q.rear == nullptr) {
+        q.front = q.rear = newNode;
+    } else {
+        q.rear->next = newNode;
+        q.rear = newNode;
+    }
+}
+
+Room dequeue(Queue& q) {
+    if (isQueueEmpty(q)) {
+        throw runtime_error("Queue is empty");
+    }
+    Node* temp = q.front;
+    Room room = q.front->room;
+    q.front = q.front->next;
+    if (q.front == nullptr) {
+        q.rear = nullptr;
+    }
+    delete temp;
+    return room;
+}
+
+void initializeStack(Stack& s) {
+    s.top = nullptr;
+}
+
+bool isStackEmpty(Stack& s) {
+    return (s.top == nullptr);
+}
+
+void push(Stack& s, Room room) {
+    Node* newNode = new Node;
+    newNode->room = room;
+    newNode->next = s.top;
+    s.top = newNode;
+}
+
+Room pop(Stack& s) {
+    if (isStackEmpty(s)) {
+        throw runtime_error("Stack is empty");
+    }
+    Node* temp = s.top;
+    Room room = s.top->room;
+    s.top = s.top->next;
+    delete temp;
+    return room;
+}
+
+const int MAX_ROOMS = 100;
+Room hotelRooms[MAX_ROOMS];
+int numRooms = 0;
+Queue waitingList;
+Stack recentCheckIns;
+
+void addRoom() {
+    if (numRooms >= MAX_ROOMS) {
+        cout << "Cannot add more rooms. Maximum limit reached." << endl;
+        return;
+    }
+
+    int roomNumber, roomType;
+    cout << "Enter room number: ";
+    cin >> roomNumber;
+    cout << "Enter room type (1 for single, 2 for double, 3 for suite): ";
+    cin >> roomType;
+    hotelRooms[numRooms].roomNumber = roomNumber;
+    hotelRooms[numRooms].roomType = roomType;
+    hotelRooms[numRooms].isOccupied = false;
+    numRooms++;
+    cout << "Room added successfully!" << endl;
+}
+
+void checkIn() {
+    int roomNumber;
+    string guestName;
+    cout << "Enter room number: ";
+    cin >> roomNumber;
+    for (int i = 0; i < numRooms; i++) {
+        if (hotelRooms[i].roomNumber == roomNumber) {
+            if (hotelRooms[i].isOccupied) {
+                cout << "Room is already occupied." << endl;
+                return;
+            } else {
+                cout << "Enter guest name: ";
+                cin.ignore();
+                getline(cin, guestName); // Use getline to read full name
+                hotelRooms[i].guestName = guestName;
+                hotelRooms[i].isOccupied = true;
+                push(recentCheckIns, hotelRooms[i]); // Push to recent check-ins stack
+                cout << "Check-in successful!" << endl;
+                return;
+            }
+        }
+    }
+    cout << "Room not found." << endl;
+}
+
+void checkOut() {
+    int roomNumber;
+    cout << "Enter room number: ";
+    cin >> roomNumber;
+    for (int i = 0; i < numRooms; i++) {
+        if (hotelRooms[i].roomNumber == roomNumber) {
+            if (hotelRooms[i].isOccupied) {
+                hotelRooms[i].isOccupied = false;
+                hotelRooms[i].guestName = "";
+                cout << "Check-out successful!" << endl;
+
+                // Check if there's anyone in the waiting list
+                if (!isQueueEmpty(waitingList)) {
+                    Room nextRoom = dequeue(waitingList);
+                    nextRoom.isOccupied = true;
+                    nextRoom.roomNumber = hotelRooms[i].roomNumber;
+                    hotelRooms[i] = nextRoom;
+                    cout << "Next guest from waiting list checked in: " << nextRoom.guestName << endl;
+                }
+                return;
+            } else {
+                cout << "Room is not occupied." << endl;
+                return;
+            }
+        }
+    }
+    cout << "Room not found." << endl;
+}
+
+void addToWaitingList() {
+    Room newRoom;
+    cout << "Enter guest name: ";
+    cin.ignore();
+    getline(cin, newRoom.guestName); // Use getline to read full name
+    cout << "Enter room type (1 for single, 2 for double, 3 for suite): ";
+    cin >> newRoom.roomType;
+    newRoom.isOccupied = false;
+    enqueue(waitingList, newRoom);
+    cout << "Added to waiting list." << endl;
+}
+
+void displayRooms() {
+    cout << "Room Number\tRoom Type\tOccupied\tGuest Name" << endl;
+    for (int i = 0; i < numRooms; i++) {
+        cout << hotelRooms[i].roomNumber << "\t\t";
+        if (hotelRooms[i].roomType == 1) {
+            cout << "Single\t\t";
+        } else if (hotelRooms[i].roomType == 2) {
+            cout << "Double\t\t";
+        } else {
+            cout << "Suite\t\t";
+        }
+        if (hotelRooms[i].isOccupied) {
+            cout << "Yes\t\t" << hotelRooms[i].guestName << endl;
+        } else {
+            cout << "No\t\t" << endl;
+        }
+    }
+}
+
+void displayRecentCheckIns() {
+    Stack tempStack = recentCheckIns; // Copy stack to avoid modifying the original stack
+    cout << "Recent Check-Ins:" << endl;
+    while (!isStackEmpty(tempStack)) {
+        Room room = pop(tempStack);
+        cout << room.guestName << " in Room " << room.roomNumber << endl;
+    }
+}
+
+int main() {
+    initializeQueue(waitingList);
+    initializeStack(recentCheckIns);
+    int choice = 0;
+    while (true) {
+        cout << "Hotel Management System" << endl;
+        cout << "1. Add Room" << endl;
+        cout << "2. Check In" << endl;
+        cout << "3. Check Out" << endl;
+        cout << "4. Display Rooms" << endl;
+        cout << "5. Add to Waiting List" << endl;
+        cout << "6. Display Recent Check-Ins" << endl;
+        cout << "7. Exit" << endl;
+        cin >> choice;
+
+        switch (choice) {
+            case 1:
+                addRoom();
+                break;
+            case 2:
+                checkIn();
+                break;
+            case 3:
+                checkOut();
+                break;
+            case 4:
+                displayRooms();
+                break;
+            case 5:
+                addToWaitingList();
+                break;
+            case 6:
+                displayRecentCheckIns();
+                break;
+            case 7:
+                return 0;
+            default:
+                cout << "Invalid choice. Please try again." << endl;
+        }
+    }
+}
